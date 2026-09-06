@@ -8,11 +8,8 @@ A biomedical research assistant that lets you search **PubMed**, ingest scientif
 
 ## Status
 
-Work in progress. Building in phases.
 
-- [ ] Phase 1 — MVP (search + ingest + ask + cite)
-- [ ] Phase 2 — Reranking, hybrid search, filters
-- [ ] Phase 3 — Gene entity recognition, dashboards
+
 
 ## Architecture (target)
 
