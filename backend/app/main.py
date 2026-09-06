@@ -14,6 +14,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import search as search_api
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -39,3 +41,6 @@ app.add_middleware(
 def health() -> dict[str, str]:
     """Liveness probe. Cheap, no dependencies."""
     return {"status": "ok"}
+
+
+app.include_router(search_api.router)
