@@ -14,6 +14,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import ask as ask_api
 from app.api import papers as papers_api
 from app.api import search as search_api
 
@@ -46,3 +47,4 @@ def health() -> dict[str, str]:
 
 app.include_router(search_api.router)
 app.include_router(papers_api.router)
+app.include_router(ask_api.router)
