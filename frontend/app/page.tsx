@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { askQuestion } from "@/lib/api";
+import { askQuestionStream, type Source } from "@/lib/api";
 import {
   addEntry,
   deleteEntry as deleteEntryFn,
   clearHistory,
   loadHistory,
   newId,
+  saveHistory,
   type HistoryEntry,
 } from "@/lib/history";
 import { AnswerWithCitations, SourcesList } from "@/components/Answer";
@@ -26,40 +27,60 @@ export default function AskPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [active, setActive] = useState<HistoryEntry | null>(null);
   const [question, setQuestion] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
   }, []);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [active]);
-
   async function submit(qText: string) {
     const q = qText.trim();
     if (!q) return;
-    setLoading(true);
     setError(null);
+
+    // Create the placeholder entry immediately so tokens can stream into it.
+    const entry: HistoryEntry = {
+      id: newId(),
+      question: q,
+      answer: "",
+      sources: [],
+      createdAt: Date.now(),
+    };
+    setActive(entry);
+    setStreaming(true);
+
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     try {
-      const res = await askQuestion(q, 6);
-      const entry: HistoryEntry = {
-        id: newId(),
-        question: q,
-        answer: res.answer,
-        sources: res.sources,
-        createdAt: Date.now(),
-      };
-      const next = addEntry(entry);
-      setHistory(next);
-      setActive(entry);
+      await askQuestionStream(q, 6, {
+        signal: ac.signal,
+        onSources: (sources: Source[]) => {
+          entry.sources = sources;
+          setActive({ ...entry });
+        },
+        onToken: (chunk: string) => {
+          entry.answer += chunk;
+          setActive({ ...entry });
+        },
+        onError: (msg: string) => setError(msg),
+        onDone: () => {
+          // Persist once complete.
+          const next = addEntry(entry);
+          setHistory(next);
+        },
+      });
       setQuestion("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ask failed");
+      if ((err as Error).name !== "AbortError") {
+        setError(err instanceof Error ? err.message : "Ask failed");
+      }
     } finally {
-      setLoading(false);
+      setStreaming(false);
+      abortRef.current = null;
     }
   }
 
@@ -81,10 +102,14 @@ export default function AskPage() {
   }
 
   function onNew() {
+    abortRef.current?.abort();
     setActive(null);
     setQuestion("");
     setError(null);
   }
+
+  const showEmpty = !active && !streaming;
+  const showSkeleton = streaming && (!active || (active.answer === "" && active.sources.length === 0));
 
   return (
     <div className="flex h-screen">
@@ -103,7 +128,7 @@ export default function AskPage() {
           className="thin-scroll flex-1 overflow-y-auto px-8 py-10"
         >
           <div className="mx-auto max-w-3xl">
-            {!active && !loading && (
+            {showEmpty && (
               <EmptyState
                 onExample={(q) => {
                   setQuestion(q);
@@ -111,8 +136,10 @@ export default function AskPage() {
                 }}
               />
             )}
-            {!active && loading && <AnswerSkeleton />}
-            {active && <ActiveThread entry={active} loading={loading} />}
+            {showSkeleton && <AnswerSkeleton />}
+            {active && !showSkeleton && (
+              <ActiveThread entry={active} streaming={streaming} />
+            )}
             {error && (
               <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 {error}
@@ -137,7 +164,7 @@ export default function AskPage() {
             />
             <button
               type="submit"
-              disabled={loading || !question.trim()}
+              disabled={streaming || !question.trim()}
               className="grid h-8 w-8 place-items-center rounded-full bg-accent text-white transition disabled:opacity-40"
               aria-label="Send"
             >
@@ -163,6 +190,7 @@ function EmptyState({ onExample }: { onExample: (q: string) => void }) {
       <p className="mt-2 text-sm text-slate-500">
         Grounded answers from PubMed papers you&apos;ve ingested. Start with an example or type your own.
       </p>
+
       <LibraryStatsCard />
 
       <div className="mx-auto mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
@@ -182,10 +210,10 @@ function EmptyState({ onExample }: { onExample: (q: string) => void }) {
 
 function ActiveThread({
   entry,
-  loading,
+  streaming,
 }: {
   entry: HistoryEntry;
-  loading: boolean;
+  streaming: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -197,14 +225,13 @@ function ActiveThread({
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-soft">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">
+        <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent">
           Answer
+          {streaming && (
+            <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          )}
         </p>
-        {loading ? (
-          <p className="text-sm text-slate-500">Thinking…</p>
-        ) : (
-          <AnswerWithCitations answer={entry.answer} sources={entry.sources} />
-        )}
+        <AnswerWithCitations answer={entry.answer} sources={entry.sources} />
         <SourcesList sources={entry.sources} />
       </div>
     </div>

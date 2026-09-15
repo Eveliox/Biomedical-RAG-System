@@ -1,9 +1,16 @@
-"""POST /api/ask — grounded question answering with citations."""
+"""POST /api/ask — grounded question answering with citations.
+
+Two variants:
+  POST /api/ask        → wait, return the full answer + sources
+  POST /api/ask/stream → newline-delimited JSON stream: sources first,
+                          then token events, then a done event
+"""
 from __future__ import annotations
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.models.schemas import AskRequest, AskResponse
 from app.services.rag_service import RAGService, get_rag_service
@@ -28,3 +35,19 @@ async def ask(
         answer=result.answer,
         sources=result.sources,
     )
+
+
+@router.post("/ask/stream")
+async def ask_stream(
+    body: AskRequest,
+    service: RAGService = Depends(get_rag_service),
+) -> StreamingResponse:
+    async def gen():
+        try:
+            async for event in service.ask_stream(body.question, top_k=body.top_k):
+                yield event
+        except Exception:
+            logger.exception("streaming rag pipeline failed")
+            yield '{"type":"error","message":"stream failed"}\n'
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson")

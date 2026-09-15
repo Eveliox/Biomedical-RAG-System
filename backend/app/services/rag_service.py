@@ -9,9 +9,11 @@ Citation contract:
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
+from typing import AsyncIterator
 
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
@@ -124,6 +126,94 @@ class RAGService:
             len(invalid),
         )
         return RAGAnswer(answer=answer, sources=sources)
+
+
+    async def ask_stream(
+        self, question: str, top_k: int = 6
+    ) -> AsyncIterator[str]:
+        """Yield newline-delimited JSON events for the /ask/stream endpoint.
+
+        Event shapes:
+          {"type":"sources","sources":[...]}   # sent first
+          {"type":"token","content":"..."}     # sent many times
+          {"type":"done"}                       # sent last
+        """
+        q_vec = self._embedder.embed_query(question)
+        hits = self._store.similarity_search(q_vec, k=top_k * 2)
+
+        if not hits:
+            msg = (
+                "I couldn't find any papers in the index that address that question. "
+                "Try ingesting more papers first, then ask again."
+            )
+            yield _ndjson({"type": "sources", "sources": []})
+            yield _ndjson({"type": "token", "content": msg})
+            yield _ndjson({"type": "done"})
+            return
+
+        # Dedup by pmid — same rules as `ask()`.
+        best_by_pmid: dict[str, tuple[float, str, dict]] = {}
+        for h in hits:
+            pmid = h.metadata.get("pmid")
+            if not pmid:
+                continue
+            if pmid not in best_by_pmid or h.score > best_by_pmid[pmid][0]:
+                best_by_pmid[pmid] = (h.score, h.text, h.metadata)
+        ranked = sorted(best_by_pmid.items(), key=lambda kv: kv[1][0], reverse=True)[:top_k]
+
+        context_chunks: list[ContextChunk] = []
+        sources: list[Source] = []
+        for i, (pmid, (score, text, meta)) in enumerate(ranked, start=1):
+            context_chunks.append(
+                ContextChunk(
+                    citation_number=i,
+                    pmid=pmid,
+                    title=meta.get("title", ""),
+                    text=text,
+                )
+            )
+            sources.append(
+                Source(
+                    pmid=pmid,
+                    title=meta.get("title", ""),
+                    journal=meta.get("journal", "") or "",
+                    publication_date=meta.get("publication_date", "") or "",
+                    pubmed_url=meta.get("pubmed_url")
+                    or f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                    relevance_score=round(score, 4),
+                )
+            )
+
+        yield _ndjson({"type": "sources", "sources": [s.model_dump() for s in sources]})
+
+        prompt = build_rag_prompt(question, context_chunks)
+        full_answer_parts: list[str] = []
+        async for chunk in self._llm.stream(prompt):
+            full_answer_parts.append(chunk)
+            yield _ndjson({"type": "token", "content": chunk})
+
+        # After streaming, run the same hallucination check as ask() and log.
+        full = "".join(full_answer_parts)
+        invalid = find_invalid_citations(full, source_count=len(sources))
+        if invalid:
+            logger.warning(
+                "rag.ask_stream hallucinated citations: %s (had %d sources)",
+                sorted(set(invalid)),
+                len(sources),
+            )
+
+        logger.info(
+            "rag.ask_stream top_k=%d sources=%d answer_chars=%d invalid_citations=%d",
+            top_k,
+            len(sources),
+            len(full),
+            len(invalid),
+        )
+        yield _ndjson({"type": "done"})
+
+
+def _ndjson(obj: dict) -> str:
+    return json.dumps(obj, separators=(",", ":")) + "\n"
 
 
 def get_rag_service() -> RAGService:
