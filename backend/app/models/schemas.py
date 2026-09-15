@@ -56,3 +56,19 @@ class AskResponse(BaseModel):
     question: str
     answer: str
     sources: list[Source]
+
+
+# --- /api/library/stats ---
+
+class JournalCount(BaseModel):
+    journal: str
+    count: int
+
+
+class LibraryStatsResponse(BaseModel):
+    paper_count: int
+    chunk_count: int
+    journal_count: int
+    top_journals: list[JournalCount]
+    year_min: int | None = None
+    year_max: int | None = None

@@ -86,6 +86,16 @@ class ChromaStore:
     def count(self) -> int:
         return int(self._collection.count())
 
+    def all_metadatas(self) -> list[dict[str, Any]]:
+        """Return every stored chunk's metadata. Fine for MVP-size corpora.
+
+        For a big corpus we'd stream or aggregate server-side, but Chroma's
+        API doesn't offer that yet, and a few thousand chunks fit in memory.
+        """
+        result = self._collection.get(include=["metadatas"], limit=100_000)
+        metas = result.get("metadatas") or []
+        return [m for m in metas if m]
+
 
 def _sanitize_metadata(meta: dict[str, Any]) -> dict[str, Any]:
     """Chroma only accepts scalar values in metadata (str, int, float, bool).
