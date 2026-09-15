@@ -14,6 +14,7 @@ import { AnswerWithCitations, SourcesList } from "@/components/Answer";
 import { Sidebar } from "@/components/Sidebar";
 import { IconArrowUp } from "@/components/Icons";
 import { LibraryStatsCard } from "@/components/LibraryStatsCard";
+import { AnswerSkeleton } from "@/components/Skeletons";
 
 const EXAMPLES = [
   "Which genes are commonly mutated in pancreatic cancer?",
@@ -102,22 +103,16 @@ export default function AskPage() {
           className="thin-scroll flex-1 overflow-y-auto px-8 py-10"
         >
           <div className="mx-auto max-w-3xl">
-            {!active ? (
+            {!active && !loading && (
               <EmptyState
                 onExample={(q) => {
                   setQuestion(q);
                   submit(q);
                 }}
               />
-            ) : (
-              <ActiveThread
-                entry={active}
-                loading={loading}
-              />
             )}
-            {loading && !active && (
-              <p className="mt-6 text-sm text-slate-500">Thinking…</p>
-            )}
+            {!active && loading && <AnswerSkeleton />}
+            {active && <ActiveThread entry={active} loading={loading} />}
             {error && (
               <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 {error}

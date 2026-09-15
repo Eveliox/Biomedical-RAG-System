@@ -15,6 +15,7 @@ import {
 } from "@/lib/history";
 import { Sidebar } from "@/components/Sidebar";
 import { IconSearch } from "@/components/Icons";
+import { IngestProgressSkeleton, PaperResultsSkeleton } from "@/components/Skeletons";
 import { useRouter } from "next/navigation";
 
 export default function LibraryPage() {
@@ -140,6 +141,8 @@ export default function LibraryPage() {
             )}
           </section>
 
+          {searchLoading && papers.length === 0 && <PaperResultsSkeleton count={5} />}
+
           {papers.length > 0 && (
             <section>
               <div className="mb-3 flex items-center justify-between">
@@ -157,7 +160,13 @@ export default function LibraryPage() {
                 </button>
               </div>
 
-              {ingestResult && (
+              {ingestLoading && (
+                <div className="mb-4">
+                  <IngestProgressSkeleton count={selectedList.length} />
+                </div>
+              )}
+
+              {ingestResult && !ingestLoading && (
                 <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-soft">
                   Ingested <b className="text-accent">{ingestResult.ingested.length}</b> new,
                   skipped <b>{ingestResult.skipped.length}</b> already-indexed,
@@ -215,7 +224,7 @@ export default function LibraryPage() {
             </section>
           )}
 
-          {papers.length === 0 && !searchLoading && (
+          {papers.length === 0 && !searchLoading && !searchError && (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white/50 p-10 text-center">
               <p className="text-sm text-slate-500">
                 No results yet. Try searching PubMed above.
