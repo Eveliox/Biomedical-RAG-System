@@ -34,6 +34,7 @@ def find_invalid_citations(answer: str, source_count: int) -> list[int]:
 
 from app.models.schemas import Source
 from app.prompts.rag_prompt import ContextChunk, build_rag_prompt
+from app.services.library_service import _year
 from app.providers.embeddings.sentence_transformers_provider import (
     get_embedding_provider,
 )
@@ -55,11 +56,19 @@ class RAGService:
         self._embedder = embedder or get_embedding_provider()
         self._llm = llm or get_llm_provider()
 
-    async def ask(self, question: str, top_k: int = 6) -> RAGAnswer:
+    async def ask(
+        self,
+        question: str,
+        top_k: int = 6,
+        year_from: int | None = None,
+        year_to: int | None = None,
+    ) -> RAGAnswer:
         # 1. Retrieve.
         q_vec = self._embedder.embed_query(question)
-        # Ask for more than top_k so we have headroom after dedup by paper.
-        hits = self._store.similarity_search(q_vec, k=top_k * 2)
+        # Ask for more than top_k so we have headroom after dedup by paper +
+        # optional year filtering.
+        hits = self._store.similarity_search(q_vec, k=top_k * 4)
+        hits = _filter_by_year(hits, year_from, year_to)
         if not hits:
             return RAGAnswer(
                 answer=(
@@ -129,7 +138,11 @@ class RAGService:
 
 
     async def ask_stream(
-        self, question: str, top_k: int = 6
+        self,
+        question: str,
+        top_k: int = 6,
+        year_from: int | None = None,
+        year_to: int | None = None,
     ) -> AsyncIterator[str]:
         """Yield newline-delimited JSON events for the /ask/stream endpoint.
 
@@ -139,7 +152,8 @@ class RAGService:
           {"type":"done"}                       # sent last
         """
         q_vec = self._embedder.embed_query(question)
-        hits = self._store.similarity_search(q_vec, k=top_k * 2)
+        hits = self._store.similarity_search(q_vec, k=top_k * 4)
+        hits = _filter_by_year(hits, year_from, year_to)
 
         if not hits:
             msg = (
@@ -214,6 +228,22 @@ class RAGService:
 
 def _ndjson(obj: dict) -> str:
     return json.dumps(obj, separators=(",", ":")) + "\n"
+
+
+def _filter_by_year(hits, year_from: int | None, year_to: int | None):
+    if year_from is None and year_to is None:
+        return hits
+    lo = year_from or 1900
+    hi = year_to or 2100
+    out = []
+    for h in hits:
+        y = _year(h.metadata.get("publication_date") or "")
+        if y is None:
+            # Keep chunks with unknown dates only if no filter is set at all.
+            continue
+        if lo <= y <= hi:
+            out.append(h)
+    return out
 
 
 def get_rag_service() -> RAGService:

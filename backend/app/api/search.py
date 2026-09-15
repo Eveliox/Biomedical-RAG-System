@@ -24,10 +24,22 @@ router = APIRouter(prefix="/api", tags=["search"])
 async def search(
     q: str = Query(..., min_length=2, description="PubMed search query"),
     limit: int = Query(10, ge=1, le=50, description="Max papers to return"),
+    year_from: int | None = Query(None, ge=1900, le=2100),
+    year_to: int | None = Query(None, ge=1900, le=2100),
+    article_type: str | None = Query(
+        None,
+        description="e.g. Review, Clinical Trial, Meta-Analysis, Randomized Controlled Trial",
+    ),
     client: PubMedClient = Depends(get_pubmed_client),
 ) -> SearchResponse:
     try:
-        pmids = await client.search(q, limit=limit)
+        pmids = await client.search(
+            q,
+            limit=limit,
+            year_from=year_from,
+            year_to=year_to,
+            article_type=article_type,
+        )
         papers = await client.fetch(pmids)
     except PubMedError as exc:
         logger.exception("pubmed error for q=%r", q)

@@ -50,10 +50,23 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function searchPapers(q: string, limit = 10): Promise<SearchResponse> {
+export type SearchFilters = {
+  yearFrom?: number | null;
+  yearTo?: number | null;
+  articleType?: string | null;
+};
+
+export async function searchPapers(
+  q: string,
+  limit = 10,
+  filters: SearchFilters = {},
+): Promise<SearchResponse> {
   const url = new URL(`${BASE}/api/search`);
   url.searchParams.set("q", q);
   url.searchParams.set("limit", String(limit));
+  if (filters.yearFrom) url.searchParams.set("year_from", String(filters.yearFrom));
+  if (filters.yearTo) url.searchParams.set("year_to", String(filters.yearTo));
+  if (filters.articleType) url.searchParams.set("article_type", filters.articleType);
   return jsonOrThrow<SearchResponse>(await fetch(url.toString()));
 }
 

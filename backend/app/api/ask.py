@@ -25,7 +25,12 @@ async def ask(
     service: RAGService = Depends(get_rag_service),
 ) -> AskResponse:
     try:
-        result = await service.ask(body.question, top_k=body.top_k)
+        result = await service.ask(
+            body.question,
+            top_k=body.top_k,
+            year_from=body.year_from,
+            year_to=body.year_to,
+        )
     except Exception as exc:
         logger.exception("rag pipeline failed")
         raise HTTPException(status_code=500, detail="Failed to answer question") from exc
@@ -44,7 +49,12 @@ async def ask_stream(
 ) -> StreamingResponse:
     async def gen():
         try:
-            async for event in service.ask_stream(body.question, top_k=body.top_k):
+            async for event in service.ask_stream(
+                body.question,
+                top_k=body.top_k,
+                year_from=body.year_from,
+                year_to=body.year_to,
+            ):
                 yield event
         except Exception:
             logger.exception("streaming rag pipeline failed")

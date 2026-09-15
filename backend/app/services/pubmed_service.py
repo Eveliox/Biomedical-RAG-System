@@ -48,12 +48,25 @@ class PubMedClient:
             params["api_key"] = self._api_key
         return params
 
-    async def search(self, query: str, limit: int = 10) -> list[str]:
-        """Return a list of PMIDs matching the query, most-relevant first."""
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        article_type: str | None = None,
+    ) -> list[str]:
+        """Return a list of PMIDs matching the query, most-relevant first.
+
+        Optional Entrez filters:
+          - year_from / year_to → `("2020"[dp] : "2024"[dp])`
+          - article_type       → `"Review"[Publication Type]`
+        """
+        term = _augment_query(query, year_from, year_to, article_type)
         params = {
             **self._common_params(),
             "db": "pubmed",
-            "term": query,
+            "term": term,
             "retmax": str(limit),
             "retmode": "json",
             "sort": "relevance",
@@ -68,7 +81,13 @@ class PubMedClient:
             pmids = data["esearchresult"]["idlist"]
         except KeyError as exc:
             raise PubMedError(f"Unexpected esearch payload: {data!r}") from exc
-        logger.info("pubmed.search q=%r limit=%d hits=%d", query, limit, len(pmids))
+        logger.info(
+            "pubmed.search q=%r limit=%d hits=%d filters=%s",
+            query,
+            limit,
+            len(pmids),
+            {"year_from": year_from, "year_to": year_to, "article_type": article_type},
+        )
         return list(pmids)
 
     async def fetch(self, pmids: list[str]) -> list[Paper]:
@@ -90,6 +109,22 @@ class PubMedClient:
         papers = _parse_pubmed_xml(xml_text)
         logger.info("pubmed.fetch requested=%d parsed=%d", len(pmids), len(papers))
         return papers
+
+
+def _augment_query(
+    query: str,
+    year_from: int | None,
+    year_to: int | None,
+    article_type: str | None,
+) -> str:
+    parts = [query.strip()]
+    if year_from or year_to:
+        lo = year_from or 1900
+        hi = year_to or 2100
+        parts.append(f'("{lo}"[dp] : "{hi}"[dp])')
+    if article_type:
+        parts.append(f'"{article_type}"[Publication Type]')
+    return " AND ".join(p for p in parts if p)
 
 
 # ---------------------------------------------------------------------------

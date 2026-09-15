@@ -41,6 +41,8 @@ class IngestResponse(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=3, max_length=1000)
     top_k: int = Field(default=6, ge=1, le=20)
+    year_from: int | None = Field(default=None, ge=1900, le=2100)
+    year_to: int | None = Field(default=None, ge=1900, le=2100)
 
 
 class Source(BaseModel):

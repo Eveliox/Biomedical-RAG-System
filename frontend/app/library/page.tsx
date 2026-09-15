@@ -24,6 +24,9 @@ export default function LibraryPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const [query, setQuery] = useState("");
+  const [yearFrom, setYearFrom] = useState<string>("");
+  const [yearTo, setYearTo] = useState<string>("");
+  const [articleType, setArticleType] = useState<string>("");
   const [papers, setPapers] = useState<Paper[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -53,7 +56,11 @@ export default function LibraryPage() {
     setSearchLoading(true);
     setSearchError(null);
     try {
-      const res = await searchPapers(query.trim(), 15);
+      const res = await searchPapers(query.trim(), 15, {
+        yearFrom: yearFrom ? parseInt(yearFrom, 10) : null,
+        yearTo: yearTo ? parseInt(yearTo, 10) : null,
+        articleType: articleType || null,
+      });
       setPapers(res.papers);
       setSelected(new Set());
       setIngestResult(null);
@@ -149,6 +156,56 @@ export default function LibraryPage() {
             {searchError && (
               <p className="mt-2 text-sm text-red-600">{searchError}</p>
             )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-medium uppercase tracking-wider text-slate-500">
+                Filters
+              </span>
+              <input
+                type="number"
+                placeholder="Year from"
+                min={1900}
+                max={2100}
+                value={yearFrom}
+                onChange={(e) => setYearFrom(e.target.value)}
+                className="w-24 rounded-full border border-slate-200 bg-white px-3 py-1 outline-none focus:border-accent"
+              />
+              <input
+                type="number"
+                placeholder="Year to"
+                min={1900}
+                max={2100}
+                value={yearTo}
+                onChange={(e) => setYearTo(e.target.value)}
+                className="w-24 rounded-full border border-slate-200 bg-white px-3 py-1 outline-none focus:border-accent"
+              />
+              <select
+                value={articleType}
+                onChange={(e) => setArticleType(e.target.value)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 outline-none focus:border-accent"
+              >
+                <option value="">Any type</option>
+                <option value="Review">Review</option>
+                <option value="Clinical Trial">Clinical Trial</option>
+                <option value="Randomized Controlled Trial">Randomized Controlled Trial</option>
+                <option value="Meta-Analysis">Meta-Analysis</option>
+                <option value="Systematic Review">Systematic Review</option>
+                <option value="Case Reports">Case Reports</option>
+              </select>
+              {(yearFrom || yearTo || articleType) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setYearFrom("");
+                    setYearTo("");
+                    setArticleType("");
+                  }}
+                  className="text-accent hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </section>
 
           {searchLoading && papers.length === 0 && <PaperResultsSkeleton count={5} />}
