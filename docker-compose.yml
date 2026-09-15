@@ -1,0 +1,40 @@
+# Ollama runs on the host machine (not in Docker) so it can use the GPU
+# on your laptop directly. The backend reaches it via host.docker.internal.
+#
+# Prereqs on the host:
+#   - Install Ollama: https://ollama.com/download
+#   - `ollama pull llama3.2:3b`
+#   - `ollama serve` (usually auto-starts)
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      NCBI_EMAIL: ${NCBI_EMAIL:-you@example.com}
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      CHROMA_PERSIST_DIR: /data/chroma_db
+      CHROMA_COLLECTION: pubmed_chunks
+      CHUNK_SIZE: "600"
+      CHUNK_OVERLAP: "120"
+      RAG_TOP_K: "6"
+    volumes:
+      - chroma_data:/data/chroma_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux compat for the hostname
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  chroma_data:
