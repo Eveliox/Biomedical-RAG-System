@@ -16,6 +16,7 @@ import {
 import { Sidebar } from "@/components/Sidebar";
 import { IconSearch } from "@/components/Icons";
 import { IngestProgressSkeleton, PaperResultsSkeleton } from "@/components/Skeletons";
+import { loadSession, saveSession } from "@/lib/librarySession";
 import { useRouter } from "next/navigation";
 
 export default function LibraryPage() {
@@ -35,7 +36,16 @@ export default function LibraryPage() {
 
   useEffect(() => {
     setHistory(loadHistory());
+    const snap = loadSession();
+    if (snap.query) setQuery(snap.query);
+    if (snap.papers.length) setPapers(snap.papers);
+    if (snap.selected.length) setSelected(new Set(snap.selected));
   }, []);
+
+  // Persist whenever the user's working state changes.
+  useEffect(() => {
+    saveSession({ query, papers, selected: Array.from(selected) });
+  }, [query, papers, selected]);
 
   async function onSearch(e: React.FormEvent) {
     e.preventDefault();
