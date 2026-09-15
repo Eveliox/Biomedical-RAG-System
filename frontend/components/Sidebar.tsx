@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { HistoryEntry } from "@/lib/history";
+import {
+  IconDna,
+  IconLibrary,
+  IconMessage,
+  IconPlus,
+  IconTrash,
+  IconUser,
+} from "@/components/Icons";
 
 type Props = {
   history: HistoryEntry[];
@@ -25,12 +33,12 @@ export function Sidebar({
 
   return (
     <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-sidebar">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <div className="grid h-8 w-8 place-items-center rounded-md bg-accent text-xs font-bold text-white">
-          Bx
+      <div className="flex items-center gap-2.5 px-5 py-5">
+        <div className="grid h-8 w-8 place-items-center rounded-md bg-ink text-white">
+          <IconDna className="h-4 w-4" />
         </div>
         <h1 className="text-sm font-semibold tracking-wide text-ink">
-          BIOMED RAG
+          Biomed&nbsp;RAG
         </h1>
       </div>
 
@@ -39,11 +47,12 @@ export function Sidebar({
           onClick={onNew}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
         >
-          <span className="text-lg leading-none">+</span> New question
+          <IconPlus className="h-4 w-4" />
+          New question
         </button>
       </div>
 
-      <div className="mt-6 flex items-center justify-between px-5 text-xs font-medium uppercase tracking-wider text-slate-500">
+      <div className="mt-6 flex items-center justify-between px-5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
         <span>Your questions</span>
         {history.length > 0 && (
           <button
@@ -72,7 +81,6 @@ export function Sidebar({
                   : "text-slate-700 hover:bg-white/60"
               }`}
             >
-              <span className="text-slate-400">◦</span>
               <button
                 onClick={() => onSelect(h.id)}
                 className="flex-1 truncate text-left"
@@ -82,11 +90,11 @@ export function Sidebar({
               </button>
               <button
                 onClick={() => onDelete(h.id)}
-                className="opacity-0 transition group-hover:opacity-100"
+                className="text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
                 aria-label="Delete"
                 title="Delete"
               >
-                <span className="text-xs text-slate-400 hover:text-red-500">×</span>
+                <IconTrash />
               </button>
             </div>
           );
@@ -95,31 +103,31 @@ export function Sidebar({
 
       <div className="mt-auto border-t border-slate-200 p-3">
         <Link
-          href="/library"
-          className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm ${
-            pathname === "/library"
-              ? "bg-white text-ink shadow-soft"
-              : "text-slate-700 hover:bg-white/60"
-          }`}
-        >
-          <span>📚</span>
-          <span className="flex-1">Library</span>
-          <span className="text-xs text-slate-400">Manage papers</span>
-        </Link>
-        <Link
           href="/"
-          className={`mt-1 flex items-center gap-3 rounded-md px-3 py-2 text-sm ${
+          className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm ${
             pathname === "/"
               ? "bg-white text-ink shadow-soft"
               : "text-slate-700 hover:bg-white/60"
           }`}
         >
-          <span>💬</span>
+          <IconMessage />
           <span className="flex-1">Ask</span>
         </Link>
+        <Link
+          href="/library"
+          className={`mt-1 flex items-center gap-3 rounded-md px-3 py-2 text-sm ${
+            pathname === "/library"
+              ? "bg-white text-ink shadow-soft"
+              : "text-slate-700 hover:bg-white/60"
+          }`}
+        >
+          <IconLibrary />
+          <span className="flex-1">Library</span>
+          <span className="text-[10px] uppercase tracking-wider text-slate-400">Papers</span>
+        </Link>
         <div className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-xs text-slate-500">
-          <div className="grid h-6 w-6 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600">
-            YOU
+          <div className="grid h-7 w-7 place-items-center rounded-full bg-slate-200 text-slate-500">
+            <IconUser className="h-4 w-4" />
           </div>
           <span>Researcher</span>
         </div>

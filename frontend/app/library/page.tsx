@@ -14,6 +14,7 @@ import {
   type HistoryEntry,
 } from "@/lib/history";
 import { Sidebar } from "@/components/Sidebar";
+import { IconSearch } from "@/components/Icons";
 import { useRouter } from "next/navigation";
 
 export default function LibraryPage() {
@@ -119,7 +120,7 @@ export default function LibraryPage() {
               onSubmit={onSearch}
               className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-soft focus-within:border-accent"
             >
-              <span className="text-slate-400">🔎</span>
+              <IconSearch className="h-4 w-4 text-slate-400" />
               <input
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
                 placeholder="Search PubMed — e.g. pancreatic cancer BRCA2"

@@ -12,6 +12,7 @@ import {
 } from "@/lib/history";
 import { AnswerWithCitations, SourcesList } from "@/components/Answer";
 import { Sidebar } from "@/components/Sidebar";
+import { IconArrowUp } from "@/components/Icons";
 
 const EXAMPLES = [
   "Which genes are commonly mutated in pancreatic cancer?",
@@ -130,9 +131,8 @@ export default function AskPage() {
               e.preventDefault();
               submit(question);
             }}
-            className="mx-auto flex max-w-3xl items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-soft focus-within:border-accent"
+            className="mx-auto flex max-w-3xl items-center gap-3 rounded-full border border-slate-200 bg-white px-5 py-2 shadow-soft focus-within:border-accent"
           >
-            <span className="text-slate-400">🧬</span>
             <input
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
               placeholder="Ask the literature…"
@@ -142,10 +142,10 @@ export default function AskPage() {
             <button
               type="submit"
               disabled={loading || !question.trim()}
-              className="grid h-8 w-8 place-items-center rounded-full bg-accent text-white disabled:opacity-40"
+              className="grid h-8 w-8 place-items-center rounded-full bg-accent text-white transition disabled:opacity-40"
               aria-label="Send"
             >
-              ↑
+              <IconArrowUp className="h-4 w-4" />
             </button>
           </form>
           <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] italic text-slate-400">
