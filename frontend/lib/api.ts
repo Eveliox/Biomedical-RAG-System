@@ -93,6 +93,17 @@ export async function getLibraryStats(): Promise<LibraryStats> {
   return jsonOrThrow<LibraryStats>(await fetch(`${BASE}/api/library/stats`));
 }
 
+export type LibraryInsights = {
+  papers_per_year: { year: number; count: number }[];
+  top_genes: { name: string; count: number }[];
+  top_journals: { name: string; count: number }[];
+  top_authors: { name: string; count: number }[];
+};
+
+export async function getLibraryInsights(): Promise<LibraryInsights> {
+  return jsonOrThrow<LibraryInsights>(await fetch(`${BASE}/api/library/insights`));
+}
+
 export async function askQuestion(question: string, top_k = 6): Promise<AskResponse> {
   return jsonOrThrow<AskResponse>(
     await fetch(`${BASE}/api/ask`, {

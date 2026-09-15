@@ -96,6 +96,13 @@ class ChromaStore:
         metas = result.get("metadatas") or []
         return [m for m in metas if m]
 
+    def all_documents_with_metadata(self) -> list[tuple[str, dict[str, Any]]]:
+        """Every stored chunk's text alongside its metadata."""
+        result = self._collection.get(include=["documents", "metadatas"], limit=100_000)
+        docs = result.get("documents") or []
+        metas = result.get("metadatas") or []
+        return [(d or "", m or {}) for d, m in zip(docs, metas)]
+
 
 def _sanitize_metadata(meta: dict[str, Any]) -> dict[str, Any]:
     """Chroma only accepts scalar values in metadata (str, int, float, bool).

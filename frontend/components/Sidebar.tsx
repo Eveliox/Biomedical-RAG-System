@@ -12,6 +12,17 @@ import {
   IconUser,
 } from "@/components/Icons";
 
+function IconChart({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h16" />
+      <path d="M7 20V10" />
+      <path d="M12 20V4" />
+      <path d="M17 20v-7" />
+    </svg>
+  );
+}
+
 type Props = {
   history: HistoryEntry[];
   activeId: string | null;
@@ -134,6 +145,17 @@ export function Sidebar({
           <IconLibrary />
           <span className="flex-1">Library</span>
           <span className="text-[10px] uppercase tracking-wider text-slate-400">Papers</span>
+        </Link>
+        <Link
+          href="/insights"
+          className={`mt-1 flex items-center gap-3 rounded-md px-3 py-2 text-sm ${
+            pathname === "/insights"
+              ? "bg-white text-ink shadow-soft"
+              : "text-slate-700 hover:bg-white/60"
+          }`}
+        >
+          <IconChart />
+          <span className="flex-1">Insights</span>
         </Link>
         <div className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-xs text-slate-500">
           <div className="grid h-7 w-7 place-items-center rounded-full bg-slate-200 text-slate-500">

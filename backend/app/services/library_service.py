@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 
+from app.services.gene_lexicon import find_genes
 from app.vectorstore.chroma_store import get_vector_store
 
 
@@ -68,5 +69,74 @@ class LibraryService:
         )
 
 
+@dataclass
+class LibraryInsights:
+    papers_per_year: list[tuple[int, int]] = field(default_factory=list)
+    top_genes: list[tuple[str, int]] = field(default_factory=list)
+    top_journals: list[tuple[str, int]] = field(default_factory=list)
+    top_authors: list[tuple[str, int]] = field(default_factory=list)
+
+
+class _InsightsAdapter:
+    """Wraps LibraryService with the heavier `insights()` computation.
+
+    Kept next to LibraryService rather than as a method on it because the
+    computation walks every chunk's *document text* (for gene detection),
+    which is significantly more expensive than plain metadata aggregation.
+    """
+
+    def __init__(self, vector_store=None) -> None:
+        self._store = vector_store or get_vector_store()
+
+    def insights(
+        self,
+        top_n_genes: int = 15,
+        top_n_journals: int = 10,
+        top_n_authors: int = 10,
+    ) -> LibraryInsights:
+        pairs = self._store.all_documents_with_metadata()
+
+        # Dedup by pmid — one paper counts once for journal/authors/year,
+        # but every chunk's text feeds the gene detector.
+        by_pmid: dict[str, dict] = {}
+        gene_counter: Counter[str] = Counter()
+
+        for text, meta in pairs:
+            pmid = meta.get("pmid")
+            if pmid and pmid not in by_pmid:
+                by_pmid[pmid] = meta
+            for gene in find_genes(text):
+                gene_counter[gene] += 1
+
+        year_counter: Counter[int] = Counter()
+        journal_counter: Counter[str] = Counter()
+        author_counter: Counter[str] = Counter()
+
+        for meta in by_pmid.values():
+            y = _year(meta.get("publication_date") or "")
+            if y:
+                year_counter[y] += 1
+            j = (meta.get("journal") or "").strip()
+            if j:
+                journal_counter[j] += 1
+            authors = (meta.get("authors") or "").split("; ")
+            for a in authors:
+                a = a.strip()
+                if a:
+                    author_counter[a] += 1
+
+        papers_per_year = sorted(year_counter.items())
+        return LibraryInsights(
+            papers_per_year=papers_per_year,
+            top_genes=gene_counter.most_common(top_n_genes),
+            top_journals=journal_counter.most_common(top_n_journals),
+            top_authors=author_counter.most_common(top_n_authors),
+        )
+
+
 def get_library_service() -> LibraryService:
     return LibraryService()
+
+
+def get_insights_service() -> _InsightsAdapter:
+    return _InsightsAdapter()

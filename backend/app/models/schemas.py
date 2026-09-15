@@ -74,3 +74,20 @@ class LibraryStatsResponse(BaseModel):
     top_journals: list[JournalCount]
     year_min: int | None = None
     year_max: int | None = None
+
+
+class YearCount(BaseModel):
+    year: int
+    count: int
+
+
+class NameCount(BaseModel):
+    name: str
+    count: int
+
+
+class LibraryInsightsResponse(BaseModel):
+    papers_per_year: list[YearCount]
+    top_genes: list[NameCount]
+    top_journals: list[NameCount]
+    top_authors: list[NameCount]
