@@ -10,7 +10,25 @@ Citation contract:
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
+
+
+_CITATION_RE = re.compile(r"\[(\d+)\]")
+
+
+def find_invalid_citations(answer: str, source_count: int) -> list[int]:
+    """Return citation numbers in `answer` that don't map to a real source.
+
+    A well-behaved model only uses [1]..[source_count]. Any [N] with N>count
+    or N<1 is a hallucination — we surface it so the caller can log/flag.
+    """
+    invalid: list[int] = []
+    for match in _CITATION_RE.finditer(answer):
+        n = int(match.group(1))
+        if n < 1 or n > source_count:
+            invalid.append(n)
+    return invalid
 
 from app.models.schemas import Source
 from app.prompts.rag_prompt import ContextChunk, build_rag_prompt
@@ -89,11 +107,21 @@ class RAGService:
         prompt = build_rag_prompt(question, context_chunks)
         answer = await self._llm.generate(prompt)
 
+        # 5. Sanity-check the citations the model produced.
+        invalid = find_invalid_citations(answer, source_count=len(sources))
+        if invalid:
+            logger.warning(
+                "rag.ask hallucinated citations: %s (had %d sources)",
+                sorted(set(invalid)),
+                len(sources),
+            )
+
         logger.info(
-            "rag.ask top_k=%d sources=%d answer_chars=%d",
+            "rag.ask top_k=%d sources=%d answer_chars=%d invalid_citations=%d",
             top_k,
             len(sources),
             len(answer),
+            len(invalid),
         )
         return RAGAnswer(answer=answer, sources=sources)
 
