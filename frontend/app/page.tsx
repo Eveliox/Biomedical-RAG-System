@@ -13,6 +13,7 @@ import {
 import { AnswerWithCitations, SourcesList } from "@/components/Answer";
 import { Sidebar } from "@/components/Sidebar";
 import { IconArrowUp } from "@/components/Icons";
+import { LibraryStatsCard } from "@/components/LibraryStatsCard";
 
 const EXAMPLES = [
   "Which genes are commonly mutated in pancreatic cancer?",
@@ -167,6 +168,8 @@ function EmptyState({ onExample }: { onExample: (q: string) => void }) {
       <p className="mt-2 text-sm text-slate-500">
         Grounded answers from PubMed papers you&apos;ve ingested. Start with an example or type your own.
       </p>
+      <LibraryStatsCard />
+
       <div className="mx-auto mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
         {EXAMPLES.map((q) => (
           <button
@@ -178,9 +181,6 @@ function EmptyState({ onExample }: { onExample: (q: string) => void }) {
           </button>
         ))}
       </div>
-      <p className="mt-10 text-xs text-slate-400">
-        No papers ingested yet? Head to <b>Library</b> in the sidebar to search PubMed and add some.
-      </p>
     </div>
   );
 }

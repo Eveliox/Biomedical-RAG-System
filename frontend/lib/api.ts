@@ -67,6 +67,19 @@ export async function ingestPapers(pmids: string[]): Promise<IngestResponse> {
   );
 }
 
+export type LibraryStats = {
+  paper_count: number;
+  chunk_count: number;
+  journal_count: number;
+  top_journals: { journal: string; count: number }[];
+  year_min: number | null;
+  year_max: number | null;
+};
+
+export async function getLibraryStats(): Promise<LibraryStats> {
+  return jsonOrThrow<LibraryStats>(await fetch(`${BASE}/api/library/stats`));
+}
+
 export async function askQuestion(question: string, top_k = 6): Promise<AskResponse> {
   return jsonOrThrow<AskResponse>(
     await fetch(`${BASE}/api/ask`, {
