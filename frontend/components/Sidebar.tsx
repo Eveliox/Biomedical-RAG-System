@@ -50,6 +50,16 @@ export function Sidebar({
           <IconPlus className="h-4 w-4" />
           New question
         </button>
+        <p className="mt-2 text-center text-[10px] uppercase tracking-wider text-slate-400">
+          <kbd className="rounded border border-slate-200 bg-white px-1 py-0.5 text-[10px] text-slate-500">
+            Ctrl
+          </kbd>{" "}
+          +{" "}
+          <kbd className="rounded border border-slate-200 bg-white px-1 py-0.5 text-[10px] text-slate-500">
+            K
+          </kbd>{" "}
+          quick search
+        </p>
       </div>
 
       <div className="mt-6 flex items-center justify-between px-5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">

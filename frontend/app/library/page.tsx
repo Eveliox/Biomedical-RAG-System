@@ -17,10 +17,11 @@ import { Sidebar } from "@/components/Sidebar";
 import { IconSearch } from "@/components/Icons";
 import { IngestProgressSkeleton, PaperResultsSkeleton } from "@/components/Skeletons";
 import { loadSession, saveSession } from "@/lib/librarySession";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LibraryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const [query, setQuery] = useState("");
@@ -43,7 +44,11 @@ export default function LibraryPage() {
     if (snap.query) setQuery(snap.query);
     if (snap.papers.length) setPapers(snap.papers);
     if (snap.selected.length) setSelected(new Set(snap.selected));
-  }, []);
+
+    // If the palette (or another link) sent us here with ?q=, prefill it.
+    const paletteQuery = searchParams.get("q");
+    if (paletteQuery) setQuery(paletteQuery);
+  }, [searchParams]);
 
   // Persist whenever the user's working state changes.
   useEffect(() => {
