@@ -183,6 +183,40 @@ Covers chunking, PubMed XML parsing, prompt construction, and the RAG service's 
 
 ---
 
+## Deploy
+
+The repo ships two blueprints for the backend and a Vercel config for the frontend.
+
+### Frontend → Vercel
+
+1. Push this repo to GitHub (already done).
+2. In Vercel: **New Project** → import `Biomedical-RAG-System` → **Root Directory** = `frontend`.
+3. Set the env var `NEXT_PUBLIC_API_BASE_URL` to your deployed backend URL.
+4. Deploy. Vercel picks up `frontend/vercel.json` automatically.
+
+### Backend → Render (recommended) or Fly.io
+
+**Render:** click **New Blueprint** in Render, point it at this repo — it reads [`render.yaml`](render.yaml) and provisions a web service + a 1GB persistent disk for Chroma. Fill in `NCBI_EMAIL` and (optional) `OLLAMA_BASE_URL` in the dashboard.
+
+**Fly.io:** [`backend/fly.toml`](backend/fly.toml). Setup:
+
+```bash
+cd backend
+flyctl launch --no-deploy --copy-config --name biomed-rag-backend
+flyctl volumes create chroma_data --size 1 --region iad
+flyctl secrets set NCBI_EMAIL=you@example.com
+flyctl deploy
+```
+
+### Note on the LLM
+
+The deployed backend deliberately doesn't include Ollama — hobby-tier instances can't run a 3B-parameter model comfortably. Search + ingest + `/api/library/*` work fully; `/api/ask` will error unless you either
+
+- point `OLLAMA_BASE_URL` at a reachable Ollama host (a home box with a public tunnel via Cloudflare Tunnel / ngrok / Tailscale works), or
+- add a hosted-LLM provider next to `providers/llm/ollama_provider.py` and switch it in via env var.
+
+For portfolio demos, the read-only surface (search, ingest, browse citations, insights dashboard) is enough — reviewers can still see the whole pipeline in action.
+
 ## Safety
 
 This tool summarizes biomedical literature and is **not** a substitute for professional medical advice. The RAG prompt is explicit: no personalized diagnosis, dosage, or treatment recommendations.

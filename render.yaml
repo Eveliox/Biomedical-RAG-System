@@ -1,0 +1,44 @@
+# Render blueprint for the backend.
+# Deploy via https://render.com/deploy?repo=https://github.com/Eveliox/Biomedical-RAG-System
+#
+# Notes:
+#   - The LLM (Ollama) is intentionally NOT deployed here — the free/hobby
+#     tier can't run llama3.2 comfortably. The deployed backend exposes
+#     search + ingest + library endpoints; /api/ask will 502 until you
+#     point OLLAMA_BASE_URL at a reachable Ollama instance (or swap in
+#     an OpenAI/Groq provider — see providers/llm/).
+#   - Chroma persists to a mounted disk so ingested papers survive restarts.
+
+services:
+  - type: web
+    name: biomed-rag-backend
+    env: python
+    plan: starter          # or `free` for a demo
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.5
+      - key: NCBI_EMAIL
+        sync: false        # set in the Render dashboard
+      - key: NCBI_API_KEY
+        sync: false
+      - key: OLLAMA_BASE_URL
+        sync: false        # e.g. https://your-ollama.example.com
+      - key: LLM_MODEL
+        value: llama3.2:3b
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: CHROMA_PERSIST_DIR
+        value: /data/chroma_db
+      - key: CHROMA_COLLECTION
+        value: pubmed_chunks
+      - key: RAG_TOP_K
+        value: "6"
+    disk:
+      name: chroma-data
+      mountPath: /data
+      sizeGB: 1
