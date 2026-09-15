@@ -6,12 +6,7 @@ A biomedical research assistant that lets you search **PubMed**, ingest scientif
 
 ---
 
-## Status
-
-
-
-
-## Architecture (target)
+## Architecture
 
 ```
 User → Next.js Frontend → FastAPI Backend
@@ -27,16 +22,170 @@ User → Next.js Frontend → FastAPI Backend
 
 ## Tech stack
 
-- **Backend:** Python 3.12, FastAPI, Pydantic, httpx
-- **Frontend:** Next.js, TypeScript, Tailwind
-- **Embeddings:** `sentence-transformers` (local, free)
-- **LLM:** Ollama (local, free)
-- **Vector store:** Chroma (swappable → pgvector)
-- **Data source:** NCBI PubMed / Entrez API
+| Layer | Choice | Why |
+|---|---|---|
+| Backend | FastAPI + Pydantic | Typed, async, auto docs |
+| Frontend | Next.js 14 + TypeScript + Tailwind | Fast to iterate, typed API client |
+| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` | Local, free, ~5ms/sentence on CPU |
+| LLM | Ollama (`llama3.2:3b`) | Local, free, no data leaves your machine |
+| Vector store | Chroma (persistent) | Zero setup, swappable via `VectorStore` Protocol |
+| Data source | NCBI PubMed / Entrez API | Free, official, exhaustive biomedical corpus |
 
-## Local development
+## Directory layout
 
-Setup instructions will be filled in as each layer is built.
+```
+biomed/
+├── backend/
+│   ├── app/
+│   │   ├── api/            # thin HTTP routes
+│   │   ├── services/       # pubmed / chunking / ingestion / rag
+│   │   ├── providers/      # embedding + llm implementations behind Protocols
+│   │   ├── vectorstore/    # chroma today, pgvector tomorrow
+│   │   ├── models/         # Paper + Pydantic schemas
+│   │   ├── prompts/        # RAG prompt template
+│   │   ├── config.py
+│   │   └── main.py
+│   ├── tests/              # pytest suite
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── .env.example
+├── frontend/
+│   ├── app/                # Next.js App Router pages + layout
+│   ├── components/         # Answer + SourcesList
+│   ├── lib/api.ts          # typed backend client
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## Quickstart (local, no Docker)
+
+Prereqs:
+- Python 3.12+
+- Node 20+
+- [Ollama](https://ollama.com/download) installed on the host
+
+### 1. Ollama
+
+```bash
+ollama pull llama3.2:3b
+ollama serve         # usually already running
+```
+
+### 2. Backend
+
+```bash
+cd backend
+python -m venv .venv
+# Windows:  .venv\Scripts\activate
+# macOS/Linux:  source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env       # fill in NCBI_EMAIL (required by NCBI's usage policy)
+uvicorn app.main:app --reload
+# → http://localhost:8000/docs
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3000
+```
+
+---
+
+## Quickstart (Docker)
+
+```bash
+# from repo root
+docker compose up --build
+# frontend: http://localhost:3000
+# backend:  http://localhost:8000/docs
+```
+
+Ollama still needs to run on the **host** (see above) — the backend container reaches it via `host.docker.internal:11434`.
+
+Persistent data (indexed chunks + embeddings) lives in the `chroma_data` volume. Wipe with `docker compose down -v`.
+
+---
+
+## Example workflow
+
+1. Open http://localhost:3000
+2. Search PubMed for `pancreatic cancer genetics`
+3. Check the boxes on a handful of relevant papers → **Ingest N selected**
+4. Ask: *"Which genes are most frequently associated with pancreatic cancer?"*
+5. Read the answer — every `[N]` is a clickable pill that scrolls to the corresponding source below.
+6. Click a source title to open the paper on PubMed.
+
+---
+
+## API
+
+Interactive docs at `http://localhost:8000/docs`. Summary:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/health` | Liveness probe |
+| `GET` | `/api/search?q=…&limit=…` | Keyword search PubMed |
+| `POST` | `/api/papers/ingest` `{ "pmids": [...] }` | Fetch → chunk → embed → store |
+| `POST` | `/api/ask` `{ "question": "...", "top_k": 6 }` | RAG answer with citations |
+
+### `/api/ask` response
+
+```json
+{
+  "question": "...",
+  "answer": "KRAS mutations are common in PDAC [1]. TP53 alterations occur too [2].",
+  "sources": [
+    { "pmid": "...", "title": "...", "journal": "...", "publication_date": "...",
+      "pubmed_url": "...", "relevance_score": 0.83 },
+    ...
+  ]
+}
+```
+
+The number in `[N]` corresponds to `sources[N-1]` — the frontend uses this to render clickable pill superscripts.
+
+---
+
+## Configuration
+
+All backend settings come from environment variables (see [`backend/.env.example`](backend/.env.example)):
+
+| Var | Default | Purpose |
+|---|---|---|
+| `NCBI_EMAIL` | `anonymous@example.com` | Required by NCBI's usage policy |
+| `NCBI_API_KEY` | — | Optional; raises rate limit from 3 to 10 req/s |
+| `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | HuggingFace model id |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Where Ollama listens |
+| `LLM_MODEL` | `llama3.2:3b` | Any model you've `ollama pull`ed |
+| `CHUNK_SIZE` | `600` | Approx. tokens per chunk |
+| `CHUNK_OVERLAP` | `120` | Overlap between consecutive chunks |
+| `RAG_TOP_K` | `6` | Unique papers cited per answer |
+| `CHROMA_PERSIST_DIR` | `./data/chroma_db` | Where the vector store writes to disk |
+
+---
+
+## Tests
+
+```bash
+cd backend
+pytest -v
+```
+
+Covers chunking, PubMed XML parsing, prompt construction, and the RAG service's dedup + citation-numbering contract. External calls (PubMed, Ollama, sentence-transformers) are faked — the whole suite runs in under a second.
+
+---
+
+## Safety
+
+This tool summarizes biomedical literature and is **not** a substitute for professional medical advice. The RAG prompt is explicit: no personalized diagnosis, dosage, or treatment recommendations.
 
 ## License
 
