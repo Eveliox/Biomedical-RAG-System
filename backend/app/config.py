@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = Field(default="./data/chroma_db")
     chroma_collection: str = Field(default="pubmed_chunks")
 
+    # --- Reranker (optional, disabled by default) ---
+    reranker_enabled: bool = Field(default=False)
+    reranker_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    # How many chunks to retrieve before reranking down to top_k.
+    reranker_candidate_pool: int = Field(default=20)
+
 
 @lru_cache
 def get_settings() -> Settings:

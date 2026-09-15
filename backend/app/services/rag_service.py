@@ -39,6 +39,8 @@ from app.providers.embeddings.sentence_transformers_provider import (
     get_embedding_provider,
 )
 from app.providers.llm.ollama_provider import get_llm_provider
+from app.providers.reranker.cross_encoder import get_reranker
+from app.config import get_settings
 from app.vectorstore.chroma_store import get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -51,10 +53,36 @@ class RAGAnswer:
 
 
 class RAGService:
-    def __init__(self, vector_store=None, embedder=None, llm=None) -> None:
+    def __init__(
+        self,
+        vector_store=None,
+        embedder=None,
+        llm=None,
+        reranker=None,
+    ) -> None:
         self._store = vector_store or get_vector_store()
         self._embedder = embedder or get_embedding_provider()
         self._llm = llm or get_llm_provider()
+        # reranker=None is the "not injected" sentinel — fall back to the
+        # config-driven factory (which may itself return None when disabled).
+        self._reranker = reranker if reranker is not None else get_reranker()
+        self._settings = get_settings()
+
+    def _rerank(self, question: str, hits):
+        """Rescore hits with the cross-encoder if one is configured.
+
+        Overwrites `.score` in place so downstream dedup keeps working
+        exactly as before — it always picks max-score per pmid.
+        """
+        if not self._reranker or not hits:
+            return hits
+        passages = [h.text for h in hits]
+        scores = self._reranker.score(question, passages)
+        for h, s in zip(hits, scores):
+            h.score = float(s)
+        hits.sort(key=lambda h: h.score, reverse=True)
+        logger.info("rag.rerank rescored=%d", len(hits))
+        return hits
 
     async def ask(
         self,
@@ -65,10 +93,10 @@ class RAGService:
     ) -> RAGAnswer:
         # 1. Retrieve.
         q_vec = self._embedder.embed_query(question)
-        # Ask for more than top_k so we have headroom after dedup by paper +
-        # optional year filtering.
-        hits = self._store.similarity_search(q_vec, k=top_k * 4)
+        pool = max(top_k * 4, self._settings.reranker_candidate_pool)
+        hits = self._store.similarity_search(q_vec, k=pool)
         hits = _filter_by_year(hits, year_from, year_to)
+        hits = self._rerank(question, hits)
         if not hits:
             return RAGAnswer(
                 answer=(
@@ -152,8 +180,10 @@ class RAGService:
           {"type":"done"}                       # sent last
         """
         q_vec = self._embedder.embed_query(question)
-        hits = self._store.similarity_search(q_vec, k=top_k * 4)
+        pool = max(top_k * 4, self._settings.reranker_candidate_pool)
+        hits = self._store.similarity_search(q_vec, k=pool)
         hits = _filter_by_year(hits, year_from, year_to)
+        hits = self._rerank(question, hits)
 
         if not hits:
             msg = (
